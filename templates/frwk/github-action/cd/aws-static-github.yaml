@@ -1,0 +1,114 @@
+apiVersion: scaffolder.backstage.io/v1beta3
+# https://backstage.io/docs/features/software-catalog/descriptor-format#kind-template
+kind: Template
+metadata:
+  name: static-github-ci_cd
+  title: Static GitHub + Github Actions CI/CD
+  description: Template for creating a static website with GitHub Actions CI/CD
+spec:
+  owner: matheusfolsfrwk
+  type: website
+
+  # These parameters are used to generate the input form in the frontend, and are
+  # used to gather input data for the execution of the template.
+  # These parameters are used to generate the input form in the frontend, and are
+  # used to gather input data for the execution of the template.
+  parameters:
+    - title: Fill in some steps
+      required:
+        - name
+      properties:
+        name:
+          title: Name
+          type: string
+          description: Unique name of the component
+          ui:autofocus: true
+          ui:options:
+            rows: 5
+        owner:
+          title: Owner
+          type: string
+          description: Owner of the component
+          # ui:field: OwnerPicker
+          # ui:options:
+          #   catalogFilter:
+          #     kind: [Group, User]
+
+    - title: AWS S3 Information
+      required:
+        - bucketName
+      properties:
+        bucketName:
+          title: Name
+          type: string
+          description: Unique bucket name
+        awsRegion:
+          title: Region
+          type: string
+          description: AWS region
+          default: sa-east-1
+        repoBranch:
+          title: Branch
+          type: string
+          description: 'Branch to deploy ex: main ou main,master'
+          default: master
+
+    - title: Choose a location
+      required:
+        - repoUrl
+      properties:
+        repoUrl:
+          title: Repository Location
+          type: string
+          ui:field: RepoUrlPicker
+          ui:options:
+            allowedHosts:
+              - github.com
+            allowedOrganizations:
+              - FrwkFols
+
+  # These steps are executed in the scaffolder backend, using data that we gathered
+  # via the parameters above.
+  steps:
+    # Each step executes an action, in this case one templates files into the working directory.
+    - id: fetch-base
+      name: Fetch Base
+      action: fetch:template
+      input:
+        url: ./content
+        values:
+          name: ${{ parameters.name }}
+          owner: ${{ parameters.owner }}
+          bucketName: ${{ parameters.bucketName }}
+          awsRegion: ${{ parameters.awsRegion }}
+          branch: ${{ parameters.repoBranch }}
+
+    # This step publishes the contents of the working directory to GitHub.
+    - id: publish
+      name: Publish
+      action: publish:github
+      input:
+        allowedHosts: ['github.com']
+        description: This is ${{ parameters.name }}
+        repoUrl: ${{ parameters.repoUrl }}
+
+    # The final step is to register our new component in the catalog.
+    - id: register
+      name: Register
+      action: catalog:register
+      input:
+        repoContentsUrl: ${{ steps['publish'].output.repoContentsUrl }}
+        catalogInfoPath: '/catalog-info.yaml'
+        gitAuthorName: ${{ user.entity.metadata.name }}
+        gitAuthorEmail: ${{ user.entity.spec.profile.email }}
+
+  # Outputs are displayed to the user after a successful execution of the template.
+  output:
+    links:
+      - title: Repository
+        url: ${{ steps['publish'].output.remoteUrl }}
+      - title: Open in catalog
+        icon: catalog
+        entityRef: ${{ steps['register'].output.entityRef }}
+      - title: Link S3 Bucket
+        entityRef: http://frwkdevx.s3-website-sa-east-1.amazonaws.com/

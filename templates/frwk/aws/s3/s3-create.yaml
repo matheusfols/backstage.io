@@ -1,0 +1,46 @@
+apiVersion: scaffolder.backstage.io/v1beta3
+# https://backstage.io/docs/features/software-catalog/descriptor-format#kind-template
+kind: Template
+metadata:
+  name: Create_Bucket
+  title: AWS S3 Create Bucket
+  description: Create a bucket in AWS S3
+spec:
+  owner: matheusfolsfrwk
+  type: service
+
+  # These parameters are used to generate the input form in the frontend, and are
+  # used to gather input data for the execution of the template.
+  parameters:
+    - title: AWS S3 Bucket
+      required:
+        - bucketName
+        - region
+      properties:
+        bucketName:
+          title: Bucket Name
+          type: string
+          description: Name of the bucket
+          pattern: '^(?!.*(\.\.|-\.))[^.][a-z0-9.\-]{1,61}[a-z0-9]$'
+        region:
+          title: Region
+          type: string
+          description: Region of the bucket
+          default: sa-east-1
+
+  # These steps are executed in the scaffolder backend, using data that we gathered
+  # via the parameters above.
+  steps:
+    # Each step executes an action, in this case one templates files into the working directory.
+    - id: createBucket
+      name: Create S3 Bucket
+      action: frwk:aws:s3:create
+      input:
+        bucketName: ${{ parameters.bucketName }}
+        region: ${{ parameters.region }}
+
+  # Outputs are displayed to the user after a successful execution of the template.
+  output:
+    links:
+      - title: Bucket Location
+        url: ${{ steps['createBucket'].output.bucketLocation }}

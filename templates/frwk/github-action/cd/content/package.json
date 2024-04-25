@@ -1,0 +1,8 @@
+{
+  "name": "${{ values.name }}",
+  "author": {
+    "name": "${{ values.author }}"
+  },
+  "private": true,
+  "dependencies": {}
+}

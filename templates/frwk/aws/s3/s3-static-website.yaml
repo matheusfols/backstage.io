@@ -1,0 +1,71 @@
+apiVersion: scaffolder.backstage.io/v1beta3
+# https://backstage.io/docs/features/software-catalog/descriptor-format#kind-template
+kind: Template
+metadata:
+  name: Create_Static_Website
+  title: AWS S3 Create Static Website
+  description: Create a static website in AWS S3 + GitHub Actions
+spec:
+  owner: matheusfolsfrwk
+  type: website
+
+  # These parameters are used to generate the input form in the frontend, and are
+  # used to gather input data for the execution of the template.
+  # These parameters are used to generate the input form in the frontend, and are
+  # used to gather input data for the execution of the template.
+  parameters:
+    - title: Fill in some steps
+      required:
+        - bucketName
+        - region
+      properties:
+        bucketName:
+          title: Bucket Name
+          type: string
+          description: Name of the bucket
+          pattern: '^(?!.*(\.\.|-\.))[^.][a-z0-9.\-]{1,61}[a-z0-9]$'
+        region:
+          title: Region
+          type: string
+          description: Region of the bucket
+          default: sa-east-1
+        isStaticWebsite:
+          type: boolean
+          title: Is Static Website
+          description: Enable static website hosting
+          default: true
+
+      dependencies:
+        isStaticWebsite:
+          allOf:
+            - if:
+                properties:
+                  isStaticWebsite:
+                    const: true
+              then:
+                properties:
+                  indexFile:
+                    title: Index name file
+                    type: string
+                    default: index.html
+
+  # These steps are executed in the scaffolder backend, using data that we gathered
+  # via the parameters above.
+  steps:
+    # Each step executes an action, in this case one templates files into the working directory.
+    - id: BucketStaticWebsite
+      name: Create S3 Bucket Static Website
+      action: frwk:aws:s3:websitestatic:create
+      input:
+        bucketName: ${{ parameters.bucketName }}
+        region: ${{ parameters.region }}
+        isStaticWebsite: ${{ parameters.isStaticWebsite}}
+        indexFile: ${{ parameters.indexFile}}
+
+  # Outputs are displayed to the user after a successful execution of the template.
+  output:
+    links:
+      - title: Bucket Location
+        url: ${{ steps['BucketStaticWebsite'].output.bucketLocation }}
+      - title: Bucket Location Website
+        url: ${{ steps['BucketStaticWebsite'].output.bucketLocationWebsite }}

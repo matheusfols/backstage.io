@@ -1,0 +1,64 @@
+name: Deploy to AWS S3
+
+on:
+  push:
+    branches:
+      - ${{ values.repoBranch }}
+  workflow_dispatch:
+    branches:
+      - ${{ values.repoBranch }}
+
+env:
+  AWS_CLI_LOG_LEVEL: debug
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v1
+        with:
+          aws-access-key-id: ${{ "${{ secrets.AWS_ACCESS_KEY_ID }}" }}
+          aws-secret-access-key: ${{ "${{ secrets.AWS_SECRET_ACCESS_KEY }}" }}
+          aws-region: ${{ values.awsRegion }}
+
+      - name: Create S3 bucket if it doesn't exist
+        run: |
+          if ! aws s3 ls "s3://${{ values.bucketName }}" 2>&1 | grep -q 'NoSuchBucket'; then
+            echo "Bucket already exists"
+          else
+            echo "Bucket does not exist, creating bucket"
+            aws s3 mb s3://${{ values.bucketName }} --region ${{ values.awsRegion }}
+          fi
+
+      - name: Remove S3 Block Public Access
+        run: |
+          aws s3api put-public-access-block --bucket ${{ values.bucketName }} --public-access-block-configuration "BlockPublicAcls=false,IgnorePublicAcls=false,BlockPublicPolicy=false,RestrictPublicBuckets=false"
+
+      - name: Enable website hosting
+        run: aws s3 website s3://${{ values.bucketName }} --index-document index.html
+
+      - name: Create policy.json
+        run: |
+          echo '{
+            "Version":"2012-10-17",
+            "Statement":[{
+            "Sid":"PublicReadGetObject",
+                "Effect":"Allow",
+              "Principal": "*",
+              "Action":["s3:GetObject"],
+              "Resource":["arn:aws:s3:::${{ values.bucketName }}/*"
+              ]
+            }
+          ]}' > policy.json
+
+      - name: Update bucket policy
+        run: |
+          aws s3api put-bucket-policy --bucket ${{ values.bucketName }} --policy file://policy.json
+
+      - name: Deploy to S3
+        run: |
+          aws s3 sync . s3://${{ values.bucketName }} --exclude '.git/*' --exclude 'node_modules/*' --exclude '.github/*'

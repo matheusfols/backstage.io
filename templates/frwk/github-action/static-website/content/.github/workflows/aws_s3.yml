@@ -1,0 +1,30 @@
+name: Deploy to AWS S3
+
+on:
+  push:
+    branches:
+      - ${{ values.repoBranch }}
+  workflow_dispatch:
+    branches:
+      - ${{ values.repoBranch }}
+
+env:
+  AWS_CLI_LOG_LEVEL: debug
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v1
+        with:
+          aws-access-key-id: ${{ "${{ secrets.AWS_ACCESS_KEY_ID }}" }}
+          aws-secret-access-key: ${{ "${{ secrets.AWS_SECRET_ACCESS_KEY }}" }}
+          aws-region: ${{ values.awsRegion }}
+
+      - name: Deploy to S3
+        run: |
+          aws s3 sync . s3://${{ values.bucketName }} --exclude '.git/*' --exclude 'node_modules/*' --exclude '.github/*'
